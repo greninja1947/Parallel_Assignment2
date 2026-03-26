@@ -1,0 +1,70 @@
+=== BUILD ===
+nvcc -arch=sm_35 -Xcompiler -fopenmp -O3 -o a2 submission.cu
+nvcc warning : The 'compute_35', 'compute_37', 'compute_50', 'sm_35', 'sm_37' and 'sm_50' architectures are deprecated, and may be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+=== BUILD OK ===
+
+=== RUNNING CORRECTNESS TESTS ===
+=== Step 1: Locating binary ===
+  Found binary: /home/cse/btech/cs1230459/Assignment_2/testing/a2
+
+=== Step 2: Running tests ===
+  edge_collinear                      PASS
+  edge_coplanar                       PASS
+  edge_equidistant                    PASS
+  edge_extreme_coords                 PASS
+  edge_k_eq_n_minus1                  PASS
+  edge_large_T_small_n                PASS
+  edge_max_k_min_n                    PASS
+  edge_minimal                        PASS
+  edge_n_eq_kp1                       PASS
+  edge_T1_large_n                     PASS
+  edge_two_clusters                   PASS
+  edge_uniform_grid                   PASS
+  test_k128                           PASS
+  test_k1                             PASS
+  test_large                          PASS
+  test_medium                         PASS
+  test_small                          PASS
+  test_stress                         PASS
+  test_T1                             PASS
+  test_T50                            PASS
+  test_tiny                           PASS
+
+  Results: 21 passed  0 failed
+
+=== Step 3: Validating outputs ===
+  TEST                                KNN          KMEANS       APPROX_KNN   NOTES
+  -----------------------------------------------------------------------------------------------
+  edge_collinear                      ✓          ✓          ✓ (0.000000) 
+  edge_coplanar                       ✓          ✓          ✓ (0.000000) 
+  edge_equidistant                    ✓          ✓          ✓ (0.000000) 
+  edge_extreme_coords                 ✓          ✓          ✓ (0.000000) 
+  edge_k_eq_n_minus1                  ✓          ✓          ✓ (0.000000) 
+  edge_large_T_small_n                ✓          ✓          ✗          mae-exceed(4.233333) 
+  edge_max_k_min_n                    ✓          ✓          ✓ (0.000000) 
+  edge_minimal                        ✓          ✓          ✓ (0.000000) 
+  edge_n_eq_kp1                       ✓          ✓          ✓ (0.000000) 
+  edge_T1_large_n                     ✓          ✓          ✗          mae-exceed(5.786200) 
+  edge_two_clusters                   ✓          ✓          ✓ (0.000000) 
+  edge_uniform_grid                   ✓          ✓          ✓ (0.000000) 
+  test_k128                           ✓          ✓          ✓ (1.394000) 
+  test_k1                             ✓          ✓          ✗          mae-exceed(7.650000) 
+  test_large                          ✓          ✓          ✗          mae-exceed(6.200600) 
+  test_medium                         ✓          ✓          ✗          mae-exceed(7.649000) 
+  test_small                          ✓          ✓          ✗          mae-exceed(3.400000) 
+  test_stress                         ✓          ✓          ✗          mae-exceed(3.428780) 
+  test_T1                             ✓          ✓          ✗          mae-exceed(4.205000) 
+  test_T50                            ✓          ✓          ✗          mae-exceed(4.845000) 
+  test_tiny                           ✓          ✓          ✓ (0.000000) 
+
+=== Step 4: Summary ===
+  Total tests      : 21
+  Build/Run        : 21 passed  0 failed
+  Validation       : 12 passed  9 failed
+
+  Run summary          : tests/outputs/run_summary.txt
+  Validation report    : tests/outputs/validation_summary.txt
+  Per-test outputs     : tests/outputs/<test_name>/{knn,approx_knn,kmeans}.txt
+
+  ⚠ Some tests failed. See validation_summary.txt
+=== TESTS EXIT: 1 ===

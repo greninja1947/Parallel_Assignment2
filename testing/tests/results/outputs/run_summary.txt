@@ -1,0 +1,23 @@
+TEST                                KNN        APPROX_KNN KMEANS     NOTES
+------------------------------------------------------------------------------------------
+edge_collinear                      PASS       PASS       PASS       
+edge_coplanar                       PASS       PASS       PASS       
+edge_equidistant                    PASS       PASS       PASS       
+edge_extreme_coords                 PASS       PASS       PASS       
+edge_k_eq_n_minus1                  PASS       PASS       PASS       
+edge_large_T_small_n                PASS       PASS       PASS       
+edge_max_k_min_n                    PASS       PASS       PASS       
+edge_minimal                        PASS       PASS       PASS       
+edge_n_eq_kp1                       PASS       PASS       PASS       
+edge_T1_large_n                     PASS       PASS       PASS       
+edge_two_clusters                   PASS       PASS       PASS       
+edge_uniform_grid                   PASS       PASS       PASS       
+test_k128                           PASS       PASS       PASS       
+test_k1                             PASS       PASS       PASS       
+test_large                          PASS       PASS       PASS       
+test_medium                         PASS       PASS       PASS       
+test_small                          PASS       PASS       PASS       
+test_stress                         PASS       PASS       PASS       
+test_T1                             PASS       PASS       PASS       
+test_T50                            PASS       PASS       PASS       
+test_tiny                           PASS       PASS       PASS       

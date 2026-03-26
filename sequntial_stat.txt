@@ -1,0 +1,26 @@
+./seq in
+put.txt knn 
+KNN time: 187081 ms
+CDF time: 95 ms
+Total time: 187208 ms
+(base) ➜  Assignment_2 git:(main) ✗ 
+
+(base) ➜  Assignment_2 git:(main) ✗ ./seq 
+input.txt approx_knn
+Approx KNN time: 18981 ms
+CDF time: 92 ms
+Total time: 19111 ms
+(base) ➜  Assignment_2 git:(main) ✗ 
+
+
+(base) ➜  Assignment_2 git:(main) ./seq input.txt kmeans
+KMeans time: 2629 ms
+Total time: 2662 ms
+(base) ➜  Assignment_2 git:(main) ✗ 
+
+
+
+
+
+
+

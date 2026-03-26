@@ -1,0 +1,8 @@
+=== BUILD ===
+make: Nothing to be done for `all'.
+=== RUN: ./a2 input.txt kmeans ===
+
+real	0m3.424s
+user	0m0.030s
+sys	0m1.718s
+=== EXIT: 0 ===

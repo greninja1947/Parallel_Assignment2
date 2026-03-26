@@ -1,4 +1,14 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <queue>
+#include <cmath>
+#include <cstring>
+#include <cstdlib>
+#include <climits>
+#include <algorithm>
+#include <chrono>
 #define BINS 256
 #define ll long long int
 #define MIN_COORD -10000
@@ -43,14 +53,26 @@ void writeoutput(int* h_px, int* h_py, int* h_pz, int* h_intensity, int N, strin
     outFile.close();
 }
 
+// Lexicographic comparison: is point a < point b by (px, py, pz)?
+static inline bool point_lex_less(int a, int b, int* px, int* py, int* pz) {
+    if (px[a] != px[b]) return px[a] < px[b];
+    if (py[a] != py[b]) return py[a] < py[b];
+    return pz[a] < pz[b];
+}
+
 // For each query point, find its K nearest neighbors using a max-heap.
+// Tie-breaking: when distances are equal, choose the lexicographically smaller point.
 void KNN(int* px, int* py, int* pz, int* knn_index, int N, int K) {
-    priority_queue<pair<ll, int>> heap;
+    // Max-heap: worst candidate at top (largest dist, then lex-largest coords)
+    auto cmp = [&](const pair<ll,int>& a, const pair<ll,int>& b) -> bool {
+        if (a.first != b.first) return a.first < b.first;
+        return point_lex_less(a.second, b.second, px, py, pz);
+    };
 
     for (int q = 0; q < N; q++) {
         ll qx = px[q], qy = py[q], qz = pz[q];
 
-        while (!heap.empty()) heap.pop();
+        priority_queue<pair<ll,int>, vector<pair<ll,int>>, decltype(cmp)> heap(cmp);
 
         for (int j = 0; j < N; j++) {
             if (j == q) continue;
@@ -61,9 +83,13 @@ void KNN(int* px, int* py, int* pz, int* knn_index, int N, int K) {
 
             if ((int)heap.size() < K) {
                 heap.push({dist, j});
-            } else if (dist < heap.top().first) {
-                heap.pop();
-                heap.push({dist, j});
+            } else {
+                auto& top = heap.top();
+                if (dist < top.first ||
+                    (dist == top.first && point_lex_less(j, top.second, px, py, pz))) {
+                    heap.pop();
+                    heap.push({dist, j});
+                }
             }
         }
 
@@ -88,14 +114,20 @@ static inline void consider_neighbor(int q, int candidate, int* px, int* py, int
     ll dz   = (ll)pz[candidate] - pz[q];
     ll dist = dx * dx + dy * dy + dz * dz;
 
+    // Find worst neighbor (largest dist, then lex-largest coords among ties)
     int worstPos = 0;
     for (int j = 1; j < K; j++) {
         if (localDist[j] > localDist[worstPos]) {
             worstPos = j;
+        } else if (localDist[j] == localDist[worstPos] && localIdx[j] != -1 && localIdx[worstPos] != -1
+                   && point_lex_less(localIdx[worstPos], localIdx[j], px, py, pz)) {
+            worstPos = j;
         }
     }
 
-    if (dist < localDist[worstPos]) {
+    // Replace if candidate is better (closer, or same dist but lex-smaller)
+    if (localIdx[worstPos] == -1 || dist < localDist[worstPos] ||
+        (dist == localDist[worstPos] && point_lex_less(candidate, localIdx[worstPos], px, py, pz))) {
         localDist[worstPos] = dist;
         localIdx[worstPos]  = candidate;
     }
@@ -200,6 +232,8 @@ void CDF(int* knn_index, int* intensity, int K, int N) {
         int localBins[BINS];
         for (int j = 0; j < BINS; j++) localBins[j] = 0;
 
+        localBins[orig[i]]++;  // include the point itself
+
         for (int k = 0; k < K; k++) {
             int neighbor = knn_index[i * K + k];
             localBins[orig[neighbor]]++;
@@ -219,8 +253,10 @@ void CDF(int* knn_index, int* intensity, int K, int N) {
 
         int Ii   = orig[i];
         int CiIi = localBins[Ii];
+        int total = K + 1;  // K neighbors + self
 
-        intensity[i] = (cmin == K) ? Ii : ((CiIi - cmin) * 255) / (K - cmin);
+        int val = (cmin == total) ? Ii : ((CiIi - cmin) * 255) / (total - cmin);
+        intensity[i] = max(0, min(255, val));
     }
 
     free(orig);
@@ -247,6 +283,7 @@ void KMEANS(int* px, int* py, int* pz, int* intensity, int N, int K, int T) {
 
     for (int iteration = 0; iteration < T; iteration++) {
         // Assign each point to nearest centroid
+        // Tie-breaking: choose the cluster with the lexically smaller centroid
         int changed = 0;
         for (int i = 0; i < N; i++) {
             ll min_dist = LLONG_MAX;
@@ -259,6 +296,13 @@ void KMEANS(int* px, int* py, int* pz, int* intensity, int N, int K, int T) {
                 if (dist < min_dist) {
                     min_dist = dist;
                     best = k;
+                } else if (dist == min_dist) {
+                    // pick lex-smaller centroid
+                    if (centroid_px[k] < centroid_px[best] ||
+                        (centroid_px[k] == centroid_px[best] && centroid_py[k] < centroid_py[best]) ||
+                        (centroid_px[k] == centroid_px[best] && centroid_py[k] == centroid_py[best] && centroid_pz[k] < centroid_pz[best])) {
+                        best = k;
+                    }
                 }
             }
             if (cluster[i] != best) {
@@ -321,7 +365,8 @@ void KMEANS(int* px, int* py, int* pz, int* intensity, int N, int K, int T) {
             }
         }
 
-        intensity[i] = (cmin == m) ? Ii : ((CiIi - cmin) * 255) / (m - cmin);
+        int val = (cmin == m) ? Ii : ((CiIi - cmin) * 255) / (m - cmin);
+        intensity[i] = max(0, min(255, val));
     }
 
     free(orig);

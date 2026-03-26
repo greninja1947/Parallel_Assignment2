@@ -8,6 +8,12 @@
 #define COORD_RANGE 20000
 using namespace std;
 
+__device__ inline bool lex_less_d(int ax, int ay, int az, int bx, int by, int bz) {
+    if (ax != bx) return ax < bx;
+    if (ay != by) return ay < by;
+    return az < bz;
+}
+
 __host__ __device__ inline int clamp_cell(int value, int grid_dim) {
     if (value < 0) return 0;
     if (value >= grid_dim) return grid_dim - 1;
@@ -99,11 +105,19 @@ __global__ void KNN(int* d_px, int* d_py, int* d_pz, int* knn_index, int N, int 
                 ll dist = dx*dx + dy*dy + dz*dz;
 
                 int worstPos = 0;
-                for (int j = 1; j < K; j++)
-                    if (localDist[j] > localDist[worstPos])
+                for (int j = 1; j < K; j++) {
+                    if (localDist[j] > localDist[worstPos]) {
                         worstPos = j;
+                    } else if (localDist[j] == localDist[worstPos] && localIdx[j] != -1 && localIdx[worstPos] != -1) {
+                        int ji = localIdx[j], wi = localIdx[worstPos];
+                        if (lex_less_d(d_px[wi], d_py[wi], d_pz[wi], d_px[ji], d_py[ji], d_pz[ji]))
+                            worstPos = j;
+                    }
+                }
 
-                if (dist < localDist[worstPos]) {
+                if (dist < localDist[worstPos] ||
+                    (dist == localDist[worstPos] && localIdx[worstPos] != -1 &&
+                     lex_less_d(s_px[i], s_py[i], s_pz[i], d_px[localIdx[worstPos]], d_py[localIdx[worstPos]], d_pz[localIdx[worstPos]]))) {
                     localDist[worstPos] = dist;
                     localIdx[worstPos]  = globalIdx;
                 }
@@ -135,10 +149,14 @@ __global__ void KMEANS_assign_cluster(int* d_px, int* d_py, int* d_pz, int* d_cl
     ll min_dist = LLONG_MAX;
     ll curr_dist = 0;
     for(int k=0;k<K;k++){
-        curr_dist = (px - d_centroid_px[k])*(px - d_centroid_px[k]) + (py - d_centroid_py[k])*(py - d_centroid_py[k]) + (pz - d_centroid_pz[k])*(pz - d_centroid_pz[k]);
+        curr_dist = (ll)(px - d_centroid_px[k])*(px - d_centroid_px[k]) + (ll)(py - d_centroid_py[k])*(py - d_centroid_py[k]) + (ll)(pz - d_centroid_pz[k])*(pz - d_centroid_pz[k]);
         if(curr_dist < min_dist) {
             min_dist = curr_dist;
             min_dist_centroid = k;
+        } else if (curr_dist == min_dist) {
+            if (lex_less_d(d_centroid_px[k], d_centroid_py[k], d_centroid_pz[k],
+                           d_centroid_px[min_dist_centroid], d_centroid_py[min_dist_centroid], d_centroid_pz[min_dist_centroid]))
+                min_dist_centroid = k;
         }
     }
 
@@ -205,7 +223,8 @@ __global__ void KMEANS_intensity_remap(int* d_cluster,  int* d_histogram, int *d
         }
     }
 
-    d_intensity_out[i] = (cmin == m) ? Ii : ((CiIi - cmin) * 255) / (m - cmin);
+    int val = (cmin == m) ? Ii : ((CiIi - cmin) * 255) / (m - cmin);
+    d_intensity_out[i] = max(0, min(255, val));
 }
 
 __global__ void CDF(int* d_knnindex, int* d_intensity, int* d_intensity_out,  int K, int N){
@@ -214,15 +233,19 @@ __global__ void CDF(int* d_knnindex, int* d_intensity, int* d_intensity_out,  in
     int localBins[BINS];
     for(int j = 0; j < BINS; j++) localBins[j] = 0;
 
+    localBins[d_intensity[i]]++;  // include the point itself
+
     for(int k = 0; k<K ;k++){
         int cur_intensity = d_intensity[d_knnindex[i*K + k]];
         localBins[cur_intensity]++;
     }
-    int cmin = -1;
 
     for(int j = 1;j<BINS;j++){
         localBins[j] += localBins[j-1];
     }
+
+    int cmin = -1;
+    int total = K + 1;  // K neighbors + self
     for(int j = 0;j<BINS;j++){
         if(localBins[j]>0){
             cmin = localBins[j];
@@ -232,7 +255,8 @@ __global__ void CDF(int* d_knnindex, int* d_intensity, int* d_intensity_out,  in
     int Ii = d_intensity[i];
     int CiIi = localBins[Ii];
 
-    d_intensity_out[i] = (cmin == K) ? Ii : ((CiIi - cmin) * 255) / (K - cmin) ; 
+    int val = (cmin == total) ? Ii : ((CiIi - cmin) * 255) / (total - cmin);
+    d_intensity_out[i] = max(0, min(255, val)); 
     
 }
 
@@ -319,11 +343,19 @@ __global__ void AKNN_getKNN(int* d_cellid, int* d_cell_start, int* d_cell_count,
                     ll new_dist = (ll)(d_px[newpt] - px)*(d_px[newpt] - px) + (ll)(d_py[newpt] - py)*(d_py[newpt] - py) + (ll)(d_pz[newpt] - pz)*(d_pz[newpt] - pz);
 
                     int worstPos = 0;
-                    for (int jj = 1; jj < K; jj++)
-                        if (localDist[jj] > localDist[worstPos])
+                    for (int jj = 1; jj < K; jj++) {
+                        if (localDist[jj] > localDist[worstPos]) {
                             worstPos = jj;
+                        } else if (localDist[jj] == localDist[worstPos] && localIdx[jj] != -1 && localIdx[worstPos] != -1) {
+                            int ji = localIdx[jj], wi = localIdx[worstPos];
+                            if (lex_less_d(d_px[wi], d_py[wi], d_pz[wi], d_px[ji], d_py[ji], d_pz[ji]))
+                                worstPos = jj;
+                        }
+                    }
 
-                    if (new_dist < localDist[worstPos]) {
+                    if (new_dist < localDist[worstPos] ||
+                        (new_dist == localDist[worstPos] && localIdx[worstPos] != -1 &&
+                         lex_less_d(d_px[newpt], d_py[newpt], d_pz[newpt], d_px[localIdx[worstPos]], d_py[localIdx[worstPos]], d_pz[localIdx[worstPos]]))) {
                         localDist[worstPos] = new_dist;
                         localIdx[worstPos]  = newpt;
                     }
@@ -357,11 +389,19 @@ __global__ void AKNN_getKNN(int* d_cellid, int* d_cell_start, int* d_cell_count,
                         ll new_dist = (ll)(d_px[newpt] - px)*(d_px[newpt] - px) + (ll)(d_py[newpt] - py)*(d_py[newpt] - py) + (ll)(d_pz[newpt] - pz)*(d_pz[newpt] - pz);
 
                         int worstPos = 0;
-                        for (int jj = 1; jj < K; jj++)
-                            if (localDist[jj] > localDist[worstPos])
+                        for (int jj = 1; jj < K; jj++) {
+                            if (localDist[jj] > localDist[worstPos]) {
                                 worstPos = jj;
+                            } else if (localDist[jj] == localDist[worstPos] && localIdx[jj] != -1 && localIdx[worstPos] != -1) {
+                                int ji = localIdx[jj], wi = localIdx[worstPos];
+                                if (lex_less_d(d_px[wi], d_py[wi], d_pz[wi], d_px[ji], d_py[ji], d_pz[ji]))
+                                    worstPos = jj;
+                            }
+                        }
 
-                        if (new_dist < localDist[worstPos]) {
+                        if (new_dist < localDist[worstPos] ||
+                            (new_dist == localDist[worstPos] && localIdx[worstPos] != -1 &&
+                             lex_less_d(d_px[newpt], d_py[newpt], d_pz[newpt], d_px[localIdx[worstPos]], d_py[localIdx[worstPos]], d_pz[localIdx[worstPos]]))) {
                             localDist[worstPos] = new_dist;
                             localIdx[worstPos]  = newpt;
                         }
@@ -393,10 +433,16 @@ __global__ void AKNN_getKNN(int* d_cellid, int* d_cell_start, int* d_cell_count,
             for (int jj = 1; jj < K; jj++) {
                 if (localDist[jj] > localDist[worstPos]) {
                     worstPos = jj;
+                } else if (localDist[jj] == localDist[worstPos] && localIdx[jj] != -1 && localIdx[worstPos] != -1) {
+                    int ji = localIdx[jj], wi = localIdx[worstPos];
+                    if (lex_less_d(d_px[wi], d_py[wi], d_pz[wi], d_px[ji], d_py[ji], d_pz[ji]))
+                        worstPos = jj;
                 }
             }
 
-            if (new_dist < localDist[worstPos]) {
+            if (new_dist < localDist[worstPos] ||
+                (new_dist == localDist[worstPos] && localIdx[worstPos] != -1 &&
+                 lex_less_d(d_px[newpt], d_py[newpt], d_pz[newpt], d_px[localIdx[worstPos]], d_py[localIdx[worstPos]], d_pz[localIdx[worstPos]]))) {
                 localDist[worstPos] = new_dist;
                 localIdx[worstPos] = newpt;
             }

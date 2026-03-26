@@ -3,7 +3,7 @@ nvcc -arch=sm_35 -Xcompiler -fopenmp -O3 -o a2 submission.cu
 nvcc warning : The 'compute_35', 'compute_37', 'compute_50', 'sm_35', 'sm_37' and 'sm_50' architectures are deprecated, and may be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
 === RUN: ./a2 input.txt knn ===
 
-real	0m2.397s
-user	0m0.012s
-sys	0m0.748s
+real	1m19.035s
+user	0m52.048s
+sys	0m21.976s
 === EXIT: 0 ===

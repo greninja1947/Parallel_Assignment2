@@ -1,0 +1,9 @@
+=== BUILD ===
+nvcc -arch=sm_35 -Xcompiler -fopenmp -O3 -o a2 submission.cu
+nvcc warning : The 'compute_35', 'compute_37', 'compute_50', 'sm_35', 'sm_37' and 'sm_50' architectures are deprecated, and may be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+=== RUN: ./a2 input.txt approx_knn ===
+
+real	0m3.616s
+user	0m0.120s
+sys	0m2.033s
+=== EXIT: 0 ===
